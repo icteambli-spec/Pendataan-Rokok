@@ -10,7 +10,7 @@ import io
 MASTER_DIR = "master pendataan cukai rokok 2025"
 RESULT_DIR = "hasil_input_user"
 
-for d in[MASTER_DIR, RESULT_DIR]:
+for d in [MASTER_DIR, RESULT_DIR]:
     if not os.path.exists(d):
         os.makedirs(d)
 
@@ -20,7 +20,7 @@ st.set_page_config(page_title="Sistem Cukai 2025", layout="wide")
 # 2. MENU NAVIGASI
 # ==========================================
 st.sidebar.title("Navigasi Sistem")
-menu = st.sidebar.radio("Pilih Akses:", ["📝 Form Input User", "🔒 Menu Admin"])
+menu = st.sidebar.radio("Pilih Akses:",["📝 Form Input User", "🔒 Menu Admin"])
 
 # ==========================================
 # 3. MENU ADMIN
@@ -43,16 +43,13 @@ if menu == "🔒 Menu Admin":
             with open(master_path, "wb") as f:
                 f.write(file_master.getbuffer())
             
-            # Coba baca file untuk memastikan formatnya didukung
             try:
                 df_preview = pd.read_excel(master_path)
-                st.success(f"✅ File Master berhasil di-upload dan terbaca oleh sistem!")
+                st.success("✅ File Master berhasil di-upload dan terbaca oleh sistem!")
                 st.write("Preview Master Data:")
                 st.dataframe(df_preview.head(), use_container_width=True)
             except Exception as e:
-                # Menampilkan error asli agar tahu jika kurang library openpyxl
                 st.error(f"❌ Gagal membaca file Excel. Detail Error: {e}")
-                st.warning("Jika error menyebutkan 'openpyxl', pastikan Anda sudah membuat file requirements.txt!")
                 
         st.divider()
         
@@ -103,20 +100,26 @@ elif menu == "📝 Form Input User":
         try:
             # Membaca Data Master
             df_master = pd.read_excel(master_path)
+            
+            # Bersihkan nama kolom dari spasi
             df_master.columns = df_master.columns.astype(str).str.strip().str.upper()
             
-            # LOGIKA MENGATASI 2 KOLOM "NAMA" DI EXCEL (NAMA KARYAWAN & NAMA TOKO)
-            # Pandas mengubah kolom NAMA kedua (nama toko) menjadi 'NAMA.1'
+            # Logika mengatasi 2 kolom "NAMA" di Excel
             if 'NAMA.1' in df_master.columns:
                 df_master.rename(columns={'NAMA.1': 'NAMA TOKO'}, inplace=True)
             elif 'NAMA TOKO' not in df_master.columns and 'NAMA' in df_master.columns:
                 df_master.rename(columns={'NAMA': 'NAMA TOKO'}, inplace=True)
 
+            # === PERBAIKAN UTAMA: BERSIHKAN SPASI PADA ISI DATANYA ===
+            # Menghapus spasi tersembunyi di awal/akhir teks dan mengubahnya jadi huruf besar
+            df_master['KODE TOKO'] = df_master['KODE TOKO'].astype(str).str.strip().str.upper()
+            df_master['NAMA TOKO'] = df_master['NAMA TOKO'].astype(str).str.strip()
+
             # Dictionary Toko
             df_toko = df_master[['KODE TOKO', 'NAMA TOKO']].drop_duplicates().dropna()
-            dict_toko = dict(zip(df_toko['KODE TOKO'].astype(str), df_toko['NAMA TOKO'].astype(str)))
+            dict_toko = dict(zip(df_toko['KODE TOKO'], df_toko['NAMA TOKO']))
             
-            # List Produk Acuan (PLU dan DESC saja)
+            # List Produk
             df_produk = df_master[['PLU', 'DESC']].drop_duplicates().dropna()
             list_produk = df_produk.to_dict('records')
             
@@ -137,7 +140,7 @@ elif menu == "📝 Form Input User":
         
         col_toko1, col_toko2 = st.columns([1, 2])
         with col_toko1:
-            kode_toko = st.text_input("KODE TOKO", max_chars=4, help="Masukkan maksimal 4 digit").upper()
+            kode_toko = st.text_input("KODE TOKO", max_chars=4, help="Masukkan maksimal 4 digit").upper().strip()
             
         nama_toko = ""
         with col_toko2:
@@ -187,14 +190,14 @@ elif menu == "📝 Form Input User":
                         
                         final_data = edited_df.copy()
                         
-                        # Susun kolom hasil sesuai format Excel Admin
+                        # Susun kolom
                         final_data.insert(0, "KODE TOKO", kode_toko)
                         final_data.insert(0, "JABATAN", jabatan)
                         final_data.insert(0, "NIK", nik_user)
                         final_data.insert(0, "NAMA KARYAWAN", nama_user)
                         final_data.insert(4, "NAMA TOKO", nama_toko) 
                         
-                        # Tambah timestamp di akhir
+                        # Tambah timestamp
                         final_data["TIMESTAMP"] = timestamp_lengkap
                         
                         file_name = f"{kode_toko}_{tanggal_submit}.csv"
