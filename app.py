@@ -109,7 +109,7 @@ with tab_input:
         with col2:
             nik_user = st.text_input("NIK", max_chars=10)
         with col3:
-            jabatan = st.selectbox("JABATAN",["", "COS", "SSL", "SJL", "SCG", "SCB"])
+            jabatan = st.selectbox("JABATAN", ["", "COS", "SSL", "SJL", "SCG", "SCB"])
             
         st.write("### 2. Pencarian Toko")
         col_toko, col_btn = st.columns([3, 1])
@@ -170,11 +170,10 @@ with tab_input:
                 if edited_df["QTY SISA CUKAI 2025"].isnull().any():
                     st.error("masih ada kolom yang belum diinput")
                 else:
-                    # SETTING ZONA WAKTU INDONESIA (WITA) - Ganti 'Asia/Makassar' jadi 'Asia/Jakarta' jika ingin WIB
+                    # SETTING ZONA WAKTU INDONESIA (WITA)
                     tz_indonesia = pytz.timezone('Asia/Makassar')
                     waktu_sekarang = datetime.now(tz_indonesia)
                     
-                    # PERBAIKAN STRFTIME DI SINI
                     timestamp_lengkap = waktu_sekarang.strftime("%Y-%m-%d %H:%M:%S")
                     tanggal_submit = waktu_sekarang.strftime("%Y-%m-%d")
                     
