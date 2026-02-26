@@ -92,7 +92,7 @@ with tab_input:
             
         st.write("### 1. Identitas Penginput")
         c1, c2, c3 = st.columns(3)
-        nama_user = c1.text_input("NAMA PENGINPUT")
+        nama_user = c1.text_input("NAMA KARYAWAN")
         nik_user = c2.text_input("NIK", max_chars=10)
         jabatan = c3.selectbox("JABATAN", ["", "COS", "SSL", "SJL", "SCG", "SCB"])
             
@@ -173,13 +173,13 @@ with tab_admin:
                 
         st.divider()
         
-        # 2. Download Hasil (Logika Update Kolom sesuai Template Master)
+        # 2. Download Hasil (Logika Update Kolom Tanpa Duplikasi)
         st.subheader("📥 2. Download Rekap Seluruh Toko")
         if st.button("🚀 Generate Rekap (Semua Toko Master)"):
             if df_master.empty:
                 st.error("Master data tidak ditemukan.")
             else:
-                # Ambil semua hasil input dari folder
+                # Ambil semua hasil input
                 list_df_hasil = []
                 for f in all_files:
                     try:
@@ -191,11 +191,11 @@ with tab_admin:
                 
                 if list_df_hasil:
                     df_semua_input = pd.concat(list_df_hasil, ignore_index=True)
-                    # Ambil entri terbaru berdasarkan TIMESTAMP untuk tiap Toko & PLU
+                    # Ambil input terbaru saja
                     df_semua_input = df_semua_input.sort_values("TIMESTAMP").drop_duplicates(subset=['KODE TOKO', 'PLU'], keep='last')
                     
-                    # Merge data input ke dalam template master
-                    # suffixes=('_master', '_input') untuk membedakan kolom yang namanya sama
+                    # Gabungkan data ke dalam kolom yang sudah ada di master
+                    # Kita gunakan map/merge secara spesifik agar tidak muncul kolom _x atau _y
                     df_final_rekap = df_final_rekap.merge(
                         df_semua_input[['KODE TOKO', 'PLU', 'QTY SISA CUKAI 2025', 'NAMA KARYAWAN', 'NIK', 'JABATAN', 'TIMESTAMP']], 
                         on=['KODE TOKO', 'PLU'], 
@@ -203,21 +203,12 @@ with tab_admin:
                         suffixes=('', '_input')
                     )
                     
-                    # ISI KOLOM MASTER DENGAN DATA INPUT
-                    # Kolom A (NAMA) diisi dari NAMA KARYAWAN hasil input
-                    df_final_rekap['NAMA'] = df_final_rekap['NAMA PENGINPUT_input']
-                    # Kolom B (NIK) diisi dari NIK hasil input
-                    df_final_rekap['NIK'] = df_final_rekap['NIK_input']
-                    # Kolom C (JABATAN) diisi dari JABATAN hasil input
-                    df_final_rekap['JABATAN'] = df_final_rekap['JABATAN_input']
-                    # Kolom H (QTY SISA CUKAI 2025) diisi dari hasil input
-                    df_final_rekap['QTY SISA CUKAI 2025'] = df_final_rekap['QTY SISA CUKAI 2025_input']
-                    # Kolom K (TIMESTAMP) diisi dari hasil input
-                    df_final_rekap['TIMESTAMP'] = df_final_rekap['TIMESTAMP_input']
-
-                    # Hapus kolom bantuan hasil merge agar kembali ke struktur master asli
-                    kolom_hapus = [c for c in df_final_rekap.columns if '_input' in c]
-                    df_final_rekap.drop(columns=kolom_hapus, inplace=True)
+                    # Mengisi kolom asli dengan data dari input, lalu hapus kolom sementara
+                    kolom_target = ['QTY SISA CUKAI 2025', 'NAMA KARYAWAN', 'NIK', 'JABATAN', 'TIMESTAMP']
+                    for col in kolom_target:
+                        if col + '_input' in df_final_rekap.columns:
+                            df_final_rekap[col] = df_final_rekap[col + '_input']
+                            df_final_rekap.drop(columns=[col + '_input'], inplace=True)
 
                 # Download File
                 output = io.BytesIO()
@@ -230,4 +221,3 @@ with tab_admin:
                     file_name=f"REKAP_FULL_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-
