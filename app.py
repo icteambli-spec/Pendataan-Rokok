@@ -168,7 +168,8 @@ with tab_admin:
         if file_m:
             with open(os.path.join(MASTER_DIR, "master_data.xlsx"), "wb") as f:
                 f.write(file_m.getbuffer())
-            st.success("Master berhasil di-upload!"); time.sleep(3)
+            st.success("Master berhasil di-upload!")
+            time.sleep(3)
             st.rerun()
                 
         st.divider()
@@ -245,6 +246,7 @@ with tab_admin:
                     os.remove(os.path.join(RESULT_DIR, f))
                 st.success(f"Berhasil menghapus {len(files_to_delete)} file data input."); time.sleep(3)
                 st.rerun()
+
 
 
 
