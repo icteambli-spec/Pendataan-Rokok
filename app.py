@@ -219,10 +219,25 @@ with tab_admin:
                 
         st.divider()
         
-        # 2. Download Hasil
-        st.subheader("📥 2. Download Rekap Input User")
-        if len(all_files) == 0:
-            st.warning("Belum ada data yang disubmit oleh user.")
-        else:
-            if st.button("Download Semua Hasil (Jadikan 1 Excel)"):
-                all_data =
+        # Sambungan di Tab Admin (Gantikan bagian yang terputus)
+if st.button("Download Semua Hasil (Jadikan 1 Excel)"):
+    combined_df = []
+    for f in all_files:
+        temp_df = pd.read_csv(os.path.join(RESULT_DIR, f))
+        combined_df.append(temp_df)
+    
+    if combined_df:
+        final_report = pd.concat(combined_df, ignore_index=True)
+        
+        # Konversi ke Excel di memori
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            final_report.to_excel(writer, index=False, sheet_name='Rekap_Cukai')
+        
+        st.download_button(
+            label="📥 Klik di sini untuk Download",
+            data=output.getvalue(),
+            file_name=f"REKAP_CUKAI_2025_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
