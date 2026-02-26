@@ -163,7 +163,7 @@ with tab_admin:
         st.success("Login Berhasil!")
         
         # 1. Upload Master
-        st.subheader("📁 1. Upload Master File")
+        st.subheader("📁 1. Manajemen File Master")
         file_m = st.file_uploader("Upload File Master Excel", type=["xlsx"])
         if file_m:
             with open(os.path.join(MASTER_DIR, "master_data.xlsx"), "wb") as f:
@@ -173,65 +173,67 @@ with tab_admin:
                 
         st.divider()
         
-        # 2. Download Hasil (Mapping ke Kolom A, B, C secara eksklusif)
+        # 2. Download Hasil (Mapping ke Kolom A, B, C secara mutlak)
         st.subheader("📥 2. Download Rekap Seluruh Toko")
         if st.button("🚀 Generate Rekap (Semua Toko Master)"):
             if df_master.empty:
                 st.error("Master data tidak ditemukan.")
             else:
-                # Baca semua file hasil input user
                 list_df_hasil = []
                 for f in all_files:
                     try:
                         list_df_hasil.append(pd.read_csv(os.path.join(RESULT_DIR, f)))
                     except: pass
                 
-                # Gunakan salinan struktur master asli
                 df_final_rekap = df_master.copy()
                 
                 if list_df_hasil:
                     df_semua_input = pd.concat(list_df_hasil, ignore_index=True)
-                    # Sortir untuk mengambil input paling baru berdasarkan PLU dan Kode Toko
                     df_semua_input = df_semua_input.sort_values("TIMESTAMP").drop_duplicates(subset=['KODE TOKO', 'PLU'], keep='last')
                     
-                    # Gabungkan data input ke template master
+                    # Merge data tanpa membuat kolom baru di kanan
                     df_final_rekap = df_final_rekap.merge(
                         df_semua_input[['KODE TOKO', 'PLU', 'NAMA KARYAWAN', 'NIK', 'JABATAN', 'QTY SISA CUKAI 2025', 'TIMESTAMP']], 
                         on=['KODE TOKO', 'PLU'], 
                         how='left',
-                        suffixes=('', '_temp')
+                        suffixes=('', '_input')
                     )
                     
-                    # MAPPING DATA KE KOLOM ASLI MASTER
-                    # Kolom A (NAMA) diisi dari data Nama Karyawan yang menginput
-                    df_final_rekap['NAMA'] = df_final_rekap['NAMA KARYAWAN_temp']
-                    # Kolom B (NIK)
-                    df_final_rekap['NIK'] = df_final_rekap['NIK_temp']
-                    # Kolom C (JABATAN)
-                    df_final_rekap['JABATAN'] = df_final_rekap['JABATAN_temp']
-                    # Kolom H (QTY SISA CUKAI 2025)
-                    df_final_rekap['QTY SISA CUKAI 2025'] = df_final_rekap['QTY SISA CUKAI 2025_temp']
-                    # Kolom K (TIMESTAMP) tetap di paling kanan sesuai urutan master
-                    df_final_rekap['TIMESTAMP'] = df_final_rekap['TIMESTAMP_temp']
+                    # ISI DATA KE KOLOM ASLI (A, B, C, H, K)
+                    df_final_rekap['NAMA'] = df_final_rekap['NAMA KARYAWAN'] # Mengisi Kolom A
+                    df_final_rekap['NIK'] = df_final_rekap['NIK_input']   # Mengisi Kolom B
+                    df_final_rekap['JABATAN'] = df_final_rekap['JABATAN_input'] # Mengisi Kolom C
+                    df_final_rekap['QTY SISA CUKAI 2025'] = df_final_rekap['QTY SISA CUKAI 2025_input'] # Mengisi Kolom H
+                    df_final_rekap['TIMESTAMP'] = df_final_rekap['TIMESTAMP_input'] # Mengisi Kolom K
 
-                    # HAPUS SEMUA KOLOM SEMENTARA HASIL MERGE
-                    # Ini memastikan tidak ada kolom "NAMA KARYAWAN" tambahan di sebelah kanan
-                    kolom_temp = [c for c in df_final_rekap.columns if '_temp' in c]
-                    df_final_rekap.drop(columns=kolom_temp, inplace=True)
-                    
-                    # Pastikan kolom "NAMA KARYAWAN" hasil join yang tidak sengaja terbawa juga dibuang
-                    if 'NAMA KARYAWAN' in df_final_rekap.columns:
-                        df_final_rekap.drop(columns=['NAMA KARYAWAN'], inplace=True)
+                    # HAPUS SEMUA KOLOM TAMBAHAN DARI HASIL MERGE
+                    kolom_dibuang = [c for c in df_final_rekap.columns if '_input' in c] + ['NAMA KARYAWAN']
+                    df_final_rekap.drop(columns=kolom_dibuang, errors='ignore', inplace=True)
 
-                # Proses Download ke Excel
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_final_rekap.to_excel(writer, index=False, sheet_name='REKAP_CUKAI_2025')
+                    df_final_rekap.to_excel(writer, index=False, sheet_name='REKAP_PENDATAAN')
                 
                 st.download_button(
-                    label="📥 Klik Download Hasil Rekap",
+                    label="📥 Klik Download File Excel",
                     data=output.getvalue(),
-                    file_name=f"HASIL_PENDATAAN_CUKAI_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    file_name=f"REKAP_FULL_{datetime.now().strftime('%Y%m%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
+        st.divider()
+
+        # 3. Fitur Hapus Semua Hasil Input
+        st.subheader("🗑️ 3. Bahaya: Hapus Data Input")
+        st.warning("Tombol ini akan menghapus SELURUH hasil input user di folder lokal (Cloud lokal).")
+        if st.button("❌ HAPUS SEMUA HASIL INPUT"):
+            files_to_delete = [f for f in os.listdir(RESULT_DIR) if f.endswith('.csv')]
+            if not files_to_delete:
+                st.info("Tidak ada data untuk dihapus.")
+            else:
+                for f in files_to_delete:
+                    os.remove(os.path.join(RESULT_DIR, f))
+                st.success(f"Berhasil menghapus {len(files_to_delete)} file data input.")
+                st.rerun()
+
 
