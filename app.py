@@ -5,7 +5,7 @@ from datetime import datetime
 import io
 
 # ==========================================
-# 1. KONFIGURASI "CLOUD" LOKAL
+# 1. SETUP FOLDER "CLOUD" LOKAL
 # ==========================================
 MASTER_DIR = "master pendataan cukai rokok 2025"
 RESULT_DIR = "hasil_input_user"
@@ -19,8 +19,8 @@ st.set_page_config(page_title="Sistem Cukai 2025", layout="wide")
 # ==========================================
 # 2. MENU NAVIGASI
 # ==========================================
-st.sidebar.title("Navigasi Sistem")
-menu = st.sidebar.radio("Pilih Akses:",["📝 Form Input User", "🔒 Menu Admin"])
+st.sidebar.title("Navigasi")
+menu = st.sidebar.radio("Pilih Akses:", ["📝 Form Input User", "🔒 Menu Admin"])
 
 # ==========================================
 # 3. MENU ADMIN
@@ -33,10 +33,9 @@ if menu == "🔒 Menu Admin":
         st.success("Login Berhasil!")
         st.divider()
         
-        # FITUR 1: UPLOAD MASTER
-        st.subheader("📁 1. Upload Master File (Acuan Input User)")
-        st.info("Upload format Excel Anda yang memuat PLU, DESC, KODE TOKO, dll.")
-        file_master = st.file_uploader("Upload File Master Excel", type=["xlsx"])
+        # Upload Master
+        st.subheader("📁 1. Upload Master File (Acuan)")
+        file_master = st.file_uploader("Upload File Master Excel Anda", type=["xlsx"])
         
         if file_master:
             master_path = os.path.join(MASTER_DIR, "master_data.xlsx")
@@ -46,21 +45,20 @@ if menu == "🔒 Menu Admin":
             try:
                 df_preview = pd.read_excel(master_path)
                 st.success("✅ File Master berhasil di-upload dan terbaca oleh sistem!")
-                st.write("Preview Master Data:")
+                st.write("Preview Data Master:")
                 st.dataframe(df_preview.head(), use_container_width=True)
             except Exception as e:
-                st.error(f"❌ Gagal membaca file Excel. Detail Error: {e}")
+                st.error(f"❌ Gagal membaca file: {e}")
                 
         st.divider()
         
-        # FITUR 2: DOWNLOAD HASIL
+        # Download Hasil
         st.subheader("📥 2. Download Rekap Input User")
         all_files =[f for f in os.listdir(RESULT_DIR) if f.endswith('.csv')]
         
         if len(all_files) == 0:
             st.warning("Belum ada data yang disubmit oleh user.")
         else:
-            st.write(f"Terdapat **{len(all_files)}** file hasil input dari berbagai toko.")
             if st.button("Download Semua Hasil (Jadikan 1 Excel)"):
                 all_data =[]
                 for file in all_files:
@@ -77,7 +75,7 @@ if menu == "🔒 Menu Admin":
                         df_final.to_excel(writer, index=False, sheet_name='Rekap_Hasil')
                     
                     st.download_button(
-                        label="📥 KLIK UNTUK DOWNLOAD REKAP EXCEL",
+                        label="📥 KLIK UNTUK DOWNLOAD REKAP",
                         data=output.getvalue(),
                         file_name=f"Rekap_Sisa_Cukai_{datetime.now().strftime('%d%m%Y_%H%M')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -88,78 +86,112 @@ if menu == "🔒 Menu Admin":
         st.error("❌ Password Salah!")
 
 # ==========================================
-# 4. MENU USER (FORM INPUT DINAMIS)
+# 4. MENU USER (FORM INPUT UTAMA)
 # ==========================================
 elif menu == "📝 Form Input User":
     st.title("📋 Pendataan QTY Sisa Cukai 2025")
+    
+    # --- PESAN SUKSES JIKA BARU SAJA SUBMIT ---
+    if st.session_state.get('show_success'):
+        st.success(f"✅ Data berhasil disimpan! (Waktu Submit: {st.session_state['waktu_submit']})")
+        st.session_state['show_success'] = False # Reset agar tidak muncul terus
+    
     master_path = os.path.join(MASTER_DIR, "master_data.xlsx")
     
     if not os.path.exists(master_path):
-        st.warning("⚠️ File Master belum di-upload. Sistem belum bisa digunakan. Silakan hubungi Admin.")
+        st.warning("⚠️ File Master belum di-upload. Sistem belum bisa digunakan.")
     else:
         try:
-            # Membaca Data Master
+            # BACA MASTER DATA
             df_master = pd.read_excel(master_path)
             
-            # Bersihkan nama kolom dari spasi
-            df_master.columns = df_master.columns.astype(str).str.strip().str.upper()
+            # Rapikan Kolom & Deteksi 2 kolom "NAMA" seperti format Excel Anda
+            col_names = list(df_master.columns.astype(str).str.strip().str.upper())
+            for i, col in enumerate(col_names):
+                if col == 'NAMA' and i > 2:  # Mengubah kolom NAMA(Toko) ke-2 jadi NAMA TOKO
+                    col_names[i] = 'NAMA TOKO'
+                elif col == 'NAMA.1':
+                    col_names[i] = 'NAMA TOKO'
+            df_master.columns = col_names
             
-            # Logika mengatasi 2 kolom "NAMA" di Excel
-            if 'NAMA.1' in df_master.columns:
-                df_master.rename(columns={'NAMA.1': 'NAMA TOKO'}, inplace=True)
-            elif 'NAMA TOKO' not in df_master.columns and 'NAMA' in df_master.columns:
-                df_master.rename(columns={'NAMA': 'NAMA TOKO'}, inplace=True)
-
-            # === PERBAIKAN UTAMA: BERSIHKAN SPASI PADA ISI DATANYA ===
-            # Menghapus spasi tersembunyi di awal/akhir teks dan mengubahnya jadi huruf besar
+            # Buang baris kosong yang tidak punya KODE TOKO
+            df_master = df_master.dropna(subset=['KODE TOKO'])
             df_master['KODE TOKO'] = df_master['KODE TOKO'].astype(str).str.strip().str.upper()
             df_master['NAMA TOKO'] = df_master['NAMA TOKO'].astype(str).str.strip()
+            df_master = df_master[df_master['KODE TOKO'] != 'NAN']
 
-            # Dictionary Toko
-            df_toko = df_master[['KODE TOKO', 'NAMA TOKO']].drop_duplicates().dropna()
-            dict_toko = dict(zip(df_toko['KODE TOKO'], df_toko['NAMA TOKO']))
-            
-            # List Produk
-            df_produk = df_master[['PLU', 'DESC']].drop_duplicates().dropna()
-            list_produk = df_produk.to_dict('records')
-            
         except Exception as e:
-            st.error(f"❌ Terjadi kesalahan membaca File Master. Detail Error: {e}")
+            st.error(f"❌ Terjadi kesalahan membaca File Master: {e}")
             st.stop()
             
-        # ==================== BAGIAN INPUT ====================
+        # ==========================================
+        # TAHAP 1: FORM DATA DIRI
+        # ==========================================
+        st.write("### 1. Identitas Penginput")
         col1, col2, col3 = st.columns(3)
         with col1:
             nama_user = st.text_input("NAMA KARYAWAN")
         with col2:
-            nik_user = st.text_input("NIK")
+            nik_user = st.text_input("NIK", max_chars=10)
         with col3:
-            jabatan = st.selectbox("JABATAN",["", "COS", "SSL", "SJL", "SCB", "SCG"])
+            jabatan = st.selectbox("JABATAN",["", "COS", "SSL", "SJL", "SCG", "SCB"])
             
-        st.divider()
-        
-        col_toko1, col_toko2 = st.columns([1, 2])
-        with col_toko1:
-            kode_toko = st.text_input("KODE TOKO", max_chars=4, help="Masukkan maksimal 4 digit").upper().strip()
+        # ==========================================
+        # TAHAP 2: PENCARIAN KODE TOKO
+        # ==========================================
+        st.write("### 2. Pencarian Toko")
+        col_toko, col_btn = st.columns([3, 1])
+        with col_toko:
+            kode_toko = st.text_input("KODE TOKO").upper().strip()
+        with col_btn:
+            st.write("") # Spacer biar sejajar
+            st.write("") # Spacer
+            btn_cari = st.button("🔍 Cari Toko", use_container_width=True)
             
-        nama_toko = ""
-        with col_toko2:
-            if len(kode_toko) == 4:
-                if kode_toko in dict_toko:
-                    nama_toko = dict_toko[kode_toko]
-                    st.success(f"NAMA TOKO: {nama_toko}")
-                else:
-                    st.error("❌ Kode Toko tidak ditemukan di Master Data!")
-            elif len(kode_toko) > 0:
-                st.warning("⏳ Ketik 4 digit kode toko untuk memunculkan nama toko...")
+        # LOGIKA TOMBOL CARI DITEKAN
+        if btn_cari:
+            # 1. Validasi Kosong
+            if not nama_user or not nik_user or jabatan == "" or not kode_toko:
+                st.error("ada data yang masih kosong atau belum diisi")
+            # 2. Validasi NIK wajib 10 Digit
+            elif len(nik_user) != 10 or not nik_user.isdigit():
+                st.error("ada data yang masih kosong atau belum diisi (Periksa NIK: Wajib 10 digit angka)")
+            else:
+                # 3. Pencarian di Master
+                df_subset = df_master[df_master['KODE TOKO'] == kode_toko]
                 
-        # Jika toko valid
-        if nama_toko != "":
+                if df_subset.empty:
+                    st.error("❌ Kode Toko tidak ditemukan di Master Data!")
+                    # Hapus memori pencarian sebelumnya jika ada
+                    if 'toko_valid' in st.session_state:
+                        del st.session_state['toko_valid']
+                else:
+                    # SIMPAN KE MEMORI (Session State) agar tabel muncul
+                    st.session_state['toko_valid'] = kode_toko
+                    st.session_state['nama_user'] = nama_user
+                    st.session_state['nik_user'] = nik_user
+                    st.session_state['jabatan'] = jabatan
+                    st.session_state['nama_toko'] = df_subset.iloc[0]['NAMA TOKO']
+                    
+                    # Ambil daftar produk khusus toko ini saja dari master
+                    produk_list = df_subset[['PLU', 'DESC']].dropna().to_dict('records')
+                    st.session_state['produk_toko'] = produk_list
+
+        # ==========================================
+        # TAHAP 3 & 4: TABEL PRODUK & SIMPAN (Muncul jika "Cari" berhasil)
+        # ==========================================
+        if st.session_state.get('toko_valid'):
             st.divider()
-            st.info("💡 **INFO:** Jika fisik di toko tidak ada, isi kolom dengan angka **0 (nol)**")
             
-            df_input = pd.DataFrame(list_produk)
-            df_input["QTY SISA CUKAI 2025"] = None 
+            # Label NAMA TOKO persis sesuai permintaan
+            st.info(f"📍 **NAMA TOKO:** {st.session_state['nama_toko']}")
+            
+            # Keterangan Acuan
+            st.write("💡 **jika tidak ada fisik input nol (0)**")
+            
+            # Siapkan Tabel
+            df_input = pd.DataFrame(st.session_state['produk_toko'])
+            df_input["QTY SISA CUKAI 2025"] = None  # Setup awal blank
             
             edited_df = st.data_editor(
                 df_input,
@@ -176,36 +208,13 @@ elif menu == "📝 Form Input User":
                 }
             )
             
-            # ==================== VALIDASI & SUBMIT ====================
-            if st.button("💾 Simpan Pendataan", type="primary"):
-                if not nama_user or not nik_user or jabatan == "":
-                    st.error("⚠️ Lengkapi NAMA, NIK, dan JABATAN terlebih dahulu!")
+            # Tombol Simpan
+            btn_simpan = st.button("💾 Simpan Pendataan", type="primary", use_container_width=True)
+            
+            if btn_simpan:
+                # Validasi jika ada sel QTY yang masih kosong (blank/null)
+                if edited_df["QTY SISA CUKAI 2025"].isnull().any():
+                    st.error("masih ada kolom yang belum diinput")
                 else:
-                    if edited_df["QTY SISA CUKAI 2025"].isnull().any():
-                        st.error("❌ ada kolom yang belum diisi")
-                    else:
-                        waktu_sekarang = datetime.now()
-                        tanggal_submit = waktu_sekarang.strftime("%Y-%m-%d")
-                        timestamp_lengkap = waktu_sekarang.strftime("%Y-%m-%d %H:%M:%S")
-                        
-                        final_data = edited_df.copy()
-                        
-                        # Susun kolom
-                        final_data.insert(0, "KODE TOKO", kode_toko)
-                        final_data.insert(0, "JABATAN", jabatan)
-                        final_data.insert(0, "NIK", nik_user)
-                        final_data.insert(0, "NAMA KARYAWAN", nama_user)
-                        final_data.insert(4, "NAMA TOKO", nama_toko) 
-                        
-                        # Tambah timestamp
-                        final_data["TIMESTAMP"] = timestamp_lengkap
-                        
-                        file_name = f"{kode_toko}_{tanggal_submit}.csv"
-                        file_path = os.path.join(RESULT_DIR, file_name)
-                        
-                        if os.path.exists(file_path):
-                            final_data.to_csv(file_path, mode='a', header=False, index=False)
-                        else:
-                            final_data.to_csv(file_path, index=False)
-                            
-                        st.success(f"✅ Data berhasil disimpan! (Tersubmit pukul {timestamp_lengkap})")
+                    # CREATE TIMESTAMP!
+                    timestamp_lengkap = datetime.now().strfti
