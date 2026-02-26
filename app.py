@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import pytz
 import io
+import time
 
 # ==========================================
 # 1. SETUP FOLDER "CLOUD" LOKAL
@@ -243,8 +244,13 @@ with tab_admin:
             else:
                 for f in files_to_delete:
                     os.remove(os.path.join(RESULT_DIR, f))
-                st.success(f"Berhasil menghapus {len(files_to_delete)} file data input.")
+                
+                # Menampilkan keterangan selama 3 detik
+                placeholder_pesan.success("✅ Hasil input telah dihapus!")
+                time.sleep(3)
+                placeholder_pesan.empty() # Hilangkan pesan setelah 3 detik
                 st.rerun()
+
 
 
 
