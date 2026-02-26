@@ -217,4 +217,5 @@ elif menu == "📝 Form Input User":
                     st.error("masih ada kolom yang belum diinput")
                 else:
                     # CREATE TIMESTAMP!
-                    timestamp_lengkap = datetime.now().strfti
+                    timestamp_lengkap = datetime.now().strftime
+
