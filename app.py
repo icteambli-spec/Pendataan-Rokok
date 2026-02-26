@@ -205,7 +205,7 @@ with tab_admin:
                     
                     # ISI KOLOM MASTER DENGAN DATA INPUT
                     # Kolom A (NAMA) diisi dari NAMA KARYAWAN hasil input
-                    df_final_rekap['NAMA'] = df_final_rekap['NAMA KARYAWAN_input']
+                    df_final_rekap['NAMA'] = df_final_rekap['NAMA PENGINPUT_input']
                     # Kolom B (NIK) diisi dari NIK hasil input
                     df_final_rekap['NIK'] = df_final_rekap['NIK_input']
                     # Kolom C (JABATAN) diisi dari JABATAN hasil input
@@ -230,3 +230,4 @@ with tab_admin:
                     file_name=f"REKAP_FULL_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
