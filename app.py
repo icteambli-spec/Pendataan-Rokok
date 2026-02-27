@@ -17,7 +17,7 @@ for d in [MASTER_DIR, RESULT_DIR]:
         os.makedirs(d)
 
 # Konfigurasi Halaman
-st.set_page_config(page_title="Pendataan Rokok Camel Cukai 2025", layout="wide")
+st.set_page_config(page_title="Pendataan Rokok Cukai 2025", layout="wide")
 
 # ==========================================
 # 2. HIDE HEADER & GITHUB LOGO
@@ -67,7 +67,7 @@ jumlah_belum_input = max(0, total_toko_master - jumlah_sudah_input)
 # ==========================================
 # 4. DASHBOARD
 # ==========================================
-st.title("📊 Dashboard Pendataan Cukai Rokok 2025")
+st.title("📊 Dashboard Pendataan Cukai Rokok Camel 2025")
 col_prog1, col_prog2, col_prog3 = st.columns(3)
 with col_prog1:
     st.metric(label="🏢 Total Toko Pendataan", value=f"{total_toko_master} Toko")
@@ -253,6 +253,7 @@ with tab_admin:
                 time.sleep(3)
                 placeholder_pesan.empty() # Hilangkan pesan setelah 3 detik
                 st.rerun()
+
 
 
 
