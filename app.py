@@ -17,7 +17,7 @@ for d in [MASTER_DIR, RESULT_DIR]:
         os.makedirs(d)
 
 # Konfigurasi Halaman
-st.set_page_config(page_title="Pendataan Cukai 2025", layout="wide")
+st.set_page_config(page_title="Pendataan Rokok Camel Cukai 2025", layout="wide")
 
 # ==========================================
 # 2. HIDE HEADER & GITHUB LOGO
@@ -253,6 +253,7 @@ with tab_admin:
                 time.sleep(3)
                 placeholder_pesan.empty() # Hilangkan pesan setelah 3 detik
                 st.rerun()
+
 
 
 
