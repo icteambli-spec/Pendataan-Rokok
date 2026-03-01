@@ -32,7 +32,7 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 # ==========================================
 # 3. KONEKSI KE GOOGLE SHEETS
 # ==========================================
-# Ganti tulisan di bawah dengan LINK Google Sheets Anda
+# GANTI TULISAN DI BAWAH INI DENGAN LINK GOOGLE SHEETS ANDA
 LINK_GSHEETS = "https://docs.google.com/spreadsheets/d/1Bhy2fR3sX79G1BJZcQDwbLKdB4oLvkdAE6kpi4R021s/edit?gid=0#gid=0" 
 
 @st.cache_resource
@@ -45,13 +45,12 @@ def init_connection():
         ]
         creds = Credentials.from_service_account_info(creds_json, scopes=scopes)
         client = gspread.authorize(creds)
-        
-        # PERUBAHANNYA ADA DI SINI: Kita gunakan open_by_url
         return client.open_by_url(LINK_GSHEETS).sheet1
-        
     except Exception as e:
         st.error(f"❌ Gagal terhubung ke Google Sheets. Detail: {e}")
         st.stop()
+
+sheet = init_connection()
 
 # ==========================================
 # 4. BACA DATA (MASTER EXCEL & GOOGLE SHEETS)
@@ -61,7 +60,7 @@ df_master = pd.DataFrame()
 total_toko_master = 0
 list_kode_toko_master =[]
 
-# Baca Master Excel (Acuan Admin)
+# A. Baca Master Excel
 if os.path.exists(master_path):
     try:
         df_master = pd.read_excel(master_path)
@@ -81,18 +80,37 @@ if os.path.exists(master_path):
     except Exception as e:
         st.error(f"Gagal membaca master data: {e}")
 
-# Hitung Progress dari Google Sheets
+# B. Baca Google Sheets (Anti-Error Copy Paste)
+df_gsheets = pd.DataFrame()
 jumlah_sudah_input = 0
-all_values =[]
+list_toko_sudah =[]
+
 try:
     all_values = sheet.get_all_values()
-    if len(all_values) > 1: # Ada data selain Header
-        df_gsheets = pd.DataFrame(all_values[1:], columns=all_values[0])
+    if len(all_values) > 1:
+        # Bersihkan spasi di judul kolom
+        headers =[str(h).strip().upper() for h in all_values[0]]
+        
+        # Merapikan baris jika copy-paste berantakan
+        header_len = len(headers)
+        cleaned_rows =[]
+        for row in all_values[1:]:
+            if len(row) > header_len:
+                row = row[:header_len] # Potong jika kelebihan kolom kosong
+            elif len(row) < header_len:
+                row = row + [""] * (header_len - len(row)) # Tambah blank jika kurang
+            cleaned_rows.append(row)
+            
+        df_gsheets = pd.DataFrame(cleaned_rows, columns=headers)
+        
+        # Hitung Progress Toko
         if 'KODE TOKO' in df_gsheets.columns:
-            toko_sudah_input = set(df_gsheets['KODE TOKO'].astype(str).unique())
-            jumlah_sudah_input = len(toko_sudah_input)
+            df_gsheets['KODE TOKO'] = df_gsheets['KODE TOKO'].astype(str).str.strip().str.upper()
+            list_toko_sudah = df_gsheets[df_gsheets['KODE TOKO'] != '']['KODE TOKO'].unique().tolist()
+            jumlah_sudah_input = len(list_toko_sudah)
+            
 except Exception as e:
-    pass 
+    st.warning(f"⚠️ Sedang merapikan pembacaan Google Sheets... (Jika ini muncul terus, cek format Excel Anda). Detail: {e}")
 
 jumlah_belum_input = total_toko_master - jumlah_sudah_input
 if jumlah_belum_input < 0: jumlah_belum_input = 0
@@ -206,7 +224,9 @@ with tab_input:
                     
                     final_data = final_data.fillna("")
                     
-                    if len(all_values) == 0:
+                    # Memastikan header Google Sheets sudah tertulis atau belum
+                    all_vals_now = sheet.get_all_values()
+                    if len(all_vals_now) == 0:
                         sheet.append_row(final_data.columns.tolist())
                     
                     sheet.append_rows(final_data.values.tolist())
@@ -246,13 +266,8 @@ with tab_admin:
             st.info("Laporan ini akan menggabungkan data toko yang **Sudah Input** (dari Google Sheets) dan **Belum Input** (dari File Master).")
             
             if st.button("Download Rekap Lengkap (Excel)", type="primary"):
-                # A. Siapkan data yang SUDAH input
-                if len(all_values) > 1:
-                    df_sudah = pd.DataFrame(all_values[1:], columns=all_values[0])
-                    list_toko_sudah = df_sudah['KODE TOKO'].astype(str).unique().tolist()
-                else:
-                    df_sudah = pd.DataFrame()
-                    list_toko_sudah =[]
+                # A. Ambil df_gsheets yang sudah bersih di atas
+                df_sudah = df_gsheets.copy()
                 
                 # B. Siapkan data yang BELUM input dari Master Data
                 df_belum = df_master[~df_master['KODE TOKO'].isin(list_toko_sudah)].copy()
@@ -260,7 +275,7 @@ with tab_admin:
                     df_belum['NAMA KARYAWAN'] = "-"
                     df_belum['NIK'] = "-"
                     df_belum['JABATAN'] = "-"
-                    df_belum['QTY SISA CUKAI 2025'] = "" # Kosongkan QTY agar mudah ditotal
+                    df_belum['QTY SISA CUKAI 2025'] = "" 
                     df_belum['TIMESTAMP'] = "BELUM INPUT"
                 
                 # C. Gabungkan Keduanya
@@ -275,7 +290,6 @@ with tab_admin:
                     if col not in df_final.columns:
                         df_final[col] = ""
                 
-                # Posisikan kolom utama di depan, sisanya (jika ada) di belakang
                 kolom_tambahan =[c for c in df_final.columns if c not in kolom_rapi]
                 df_final = df_final[kolom_rapi + kolom_tambahan]
                 
