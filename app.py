@@ -32,7 +32,8 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 # ==========================================
 # 3. KONEKSI KE GOOGLE SHEETS
 # ==========================================
-NAMA_FILE_GSHEETS = "Data Cukai Rokok 2025" 
+# Ganti tulisan di bawah dengan LINK Google Sheets Anda
+LINK_GSHEETS = "https://docs.google.com/spreadsheets/d/1Bhy2fR3sX79G1BJZcQDwbLKdB4oLvkdAE6kpi4R021s/edit?gid=0#gid=0" 
 
 @st.cache_resource
 def init_connection():
@@ -44,12 +45,13 @@ def init_connection():
         ]
         creds = Credentials.from_service_account_info(creds_json, scopes=scopes)
         client = gspread.authorize(creds)
-        return client.open(NAMA_FILE_GSHEETS).sheet1
+        
+        # PERUBAHANNYA ADA DI SINI: Kita gunakan open_by_url
+        return client.open_by_url(LINK_GSHEETS).sheet1
+        
     except Exception as e:
-        st.error(f"❌ Gagal terhubung ke Google Sheets. Pastikan Secrets benar dan Sheet sudah di-share ke email robot. Detail: {e}")
+        st.error(f"❌ Gagal terhubung ke Google Sheets. Detail: {e}")
         st.stop()
-
-sheet = init_connection()
 
 # ==========================================
 # 4. BACA DATA (MASTER EXCEL & GOOGLE SHEETS)
